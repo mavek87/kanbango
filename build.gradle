@@ -1,0 +1,125 @@
+import java.nio.charset.StandardCharsets
+
+plugins {
+    id "org.openjfx.javafxplugin" version "0.0.12"
+    id "org.beryx.jlink" version "2.25.0"
+}
+
+group 'com.matteoveroni'
+version '1.0'
+
+sourceCompatibility = JavaVersion.VERSION_17
+targetCompatibility = JavaVersion.VERSION_17
+def UTF_8 = StandardCharsets.UTF_8.name()
+compileJava.options.encoding = UTF_8
+compileTestJava.options.encoding = UTF_8
+javadoc.options.encoding = UTF_8
+
+configurations.all {
+    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+    resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
+}
+
+application {
+    setApplicationName("kanbango");
+    mainModule.set("${project.group}.${applicationName}")
+    mainClass.set("${project.group}.${applicationName}.App")
+}
+
+wrapper {
+    gradleVersion = '7.4.2'
+}
+
+java {
+    modularity.inferModulePath.set(true)
+}
+
+jar {
+    manifest.attributes(
+            'Built-By': 'Matteo Veroni',
+            'Created-By': System.properties['java.version']
+                    + " (" + System.properties['java.vendor']
+                    + " " + System.properties['java.vm.version'] + ")",
+            'Specification-Title': project.name,
+            'Specification-Version': project.version,
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version,
+            'Main-Class': project.group + '.kanbango.App'
+    )
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.9.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+}
+
+
+test {
+    useJUnitPlatform()
+    moduleOptions {
+        runOnClasspath = true
+    }
+}
+
+javafx {
+    version = "17"
+    modules = ['javafx.base', 'javafx.controls', 'javafx.graphics', 'javafx.fxml', 'javafx.web']
+}
+
+jlink {
+    options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
+    launcher {
+        name = 'KanbanGo'
+        mainClass = "com.matteoveroni.kanbango.App"
+        noConsole = true
+    }
+    addExtraDependencies("javafx")
+
+    targetPlatform('linux-x64') {
+        jdkHome = jdkDownload("https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_x64.zip")
+//        jdkHome = jdkDownload("https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_x64.zip")
+    }
+
+    targetPlatform("win") {
+//        jdkHome = jdkDownload("https://github.com/AdoptOpenJDK/openjdk14-binaries/releases/download/jdk-14.0.1%2B7.1/OpenJDK14U-jdk_x64_windows_hotspot_14.0.1_7.zip")
+    }
+
+    jpackage {
+        def currentOs = org.gradle.internal.os.OperatingSystem.current()
+
+        targetPlatformName = currentOs.isWindows() ? "win" : "linux-x64"
+
+//        jvmArgs = ['-splash:$APPDIR/splash.png']
+//        def imgType = currentOs.windows ? 'ico' : currentOs.macOsX ? 'icns' : 'png'
+//        icon = "src/main/resources/java.$imgType"
+        installerOptions += [
+                '--vendor', 'Matteo Veroni',
+//                '--file-associations', 'src/main/resources/associations.properties',
+                '--app-version', version.replace('-', '.'),
+                '--description', 'A \'kanban\' software to schedule tasks',
+                '--verbose',
+        ]
+        if (currentOs.isWindows()) {
+            installerOptions += [
+                    '--win-per-user-install',
+                    '--win-dir-chooser',
+                    '--win-menu',
+                    '--win-shortcut'
+            ]
+            installerType = 'msi'
+        } else if (currentOs.isLinux()) {
+//            imageOptions += ['--icon', 'src/main/resources/launcher.png']
+            installerOptions += [
+                    '--resource-dir', buildDir.toString() + '/jpackage/KanbanGo/lib',
+                    '--linux-shortcut',
+                    '--linux-deb-maintainer', 'matver87@gmail.com',
+                    '--linux-rpm-license-type', 'MIT'
+            ]
+        }
+    }
+}
